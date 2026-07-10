@@ -174,7 +174,8 @@
   </footer>
 </div>
 
-<script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"></script>
+<!-- Pyodide is self-hosted in ./pyodide/ (v0.27.2 core) — no third-party CDN at runtime. -->
+<script src="pyodide/pyodide.js"></script>
 <script>
 const PY_FILES = ["handwrite.py","gnlib.py","gnwrite.py","typeset.py","strictpb.py","gnbg.py","web.py"];
 const BIN_ASSETS = ["template.goodnotes","stroke_proto.bin"];   // written as bytes
@@ -209,7 +210,7 @@ COLORS.forEach(([name,hex])=>{
 // ---- boot Pyodide ----
 async function boot(){
   try{
-    pyodide = await loadPyodide();
+    pyodide = await loadPyodide({ indexURL: new URL("pyodide/", document.baseURI).href });
     setStatus("Lade Schrift &amp; Vorlage…","spin");
     pyodide.FS.mkdirTree("/work/py"); pyodide.FS.mkdirTree("/work/assets");
     const fetchAll = [
