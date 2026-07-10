@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+_localtest.goodnotes
+inkweb_out.goodnotes
+py/__pycache__/

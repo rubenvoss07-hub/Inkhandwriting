@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ink Handwriting — Text zu echter GoodNotes-Tinte</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖋️</text></svg>">
+<style>
+  :root{
+    --ink:#E67300;
+    --bg:#191713;         /* warm charcoal workspace */
+    --bg2:#221f1a;
+    --panel:#2b2721;
+    --line:#3a352d;
+    --paper:#FBFAF6;
+    --paper-rule:#c8d2df;
+    --txt:#efe9df;
+    --txt-dim:#a79f90;
+    --ok:#7fb069;
+    --err:#d9736b;
+    --radius:12px;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    --sans:ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(120% 120% at 15% -10%,#221f19 0%,var(--bg) 55%);
+    color:var(--txt);font-family:var(--sans);font-size:15px;line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--ink)}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 22px 40px;min-height:100%;display:flex;flex-direction:column}
+
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .brand{font-family:var(--serif);font-size:27px;letter-spacing:.2px}
+  .brand .dot{color:var(--ink)}
+  .tag{color:var(--txt-dim);font-size:13.5px}
+  .tag b{color:var(--txt);font-weight:600}
+
+  main{display:grid;grid-template-columns:340px 1fr;gap:24px;margin-top:22px;flex:1;align-items:start}
+  @media (max-width:820px){main{grid-template-columns:1fr}}
+
+  .panel{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);
+    border-radius:var(--radius);padding:16px}
+  .panel + .panel{margin-top:16px}
+
+  label.fld{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-dim);margin:0 0 7px}
+  textarea{width:100%;min-height:190px;resize:vertical;background:#15130f;color:var(--txt);
+    border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-family:var(--sans);
+    font-size:14.5px;line-height:1.55;outline:none}
+  textarea:focus{border-color:var(--ink)}
+
+  .row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-top:14px}
+  .swatches{display:flex;gap:8px}
+  .sw{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;
+    outline:2px solid transparent;transition:transform .08s}
+  .sw:hover{transform:scale(1.1)}
+  .sw[aria-pressed="true"]{border-color:var(--txt);box-shadow:0 0 0 2px var(--bg2),0 0 0 4px var(--txt)}
+  .num{width:70px;background:#15130f;color:var(--txt);border:1px solid var(--line);border-radius:8px;
+    padding:8px 9px;font-size:14px;outline:none}
+  .num:focus{border-color:var(--ink)}
+
+  details{margin-top:14px;border-top:1px dashed var(--line);padding-top:12px}
+  summary{cursor:pointer;color:var(--txt-dim);font-size:13px;list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸ ";color:var(--ink)}
+  details[open] summary::before{content:"▾ "}
+  .adv{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px}
+  .adv label{font-size:12px;color:var(--txt-dim);display:flex;flex-direction:column;gap:5px}
+  .adv input[type=range]{accent-color:var(--ink)}
+  .chk{flex-direction:row!important;align-items:center;gap:7px!important}
+
+  .btn{appearance:none;border:0;border-radius:10px;padding:12px 16px;font-size:15px;font-weight:600;
+    cursor:pointer;font-family:var(--sans);width:100%;margin-top:16px;
+    background:var(--ink);color:#20160a;transition:filter .1s,transform .05s}
+  .btn:hover{filter:brightness(1.07)}
+  .btn:active{transform:translateY(1px)}
+  .btn:disabled{opacity:.5;cursor:progress;filter:none}
+
+  .status{margin-top:12px;font-size:12.5px;color:var(--txt-dim);min-height:1.4em;display:flex;gap:8px;align-items:center}
+  .status .ok{color:var(--ok)} .status .err{color:var(--err)}
+  .spin{width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--ink);
+    border-radius:50%;animation:sp .7s linear infinite;display:inline-block}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  .stage{background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px;min-height:420px;display:flex;flex-direction:column}
+  .stagebar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;
+    color:var(--txt-dim);font-size:13px}
+  .pager{display:flex;gap:8px;align-items:center}
+  .pager button{background:var(--panel);color:var(--txt);border:1px solid var(--line);
+    border-radius:7px;width:30px;height:28px;cursor:pointer;font-size:15px}
+  .pager button:disabled{opacity:.35;cursor:default}
+  .papers{overflow:auto;flex:1;display:flex;justify-content:center}
+  .paper{background:var(--paper);border-radius:4px;box-shadow:0 10px 34px rgba(0,0,0,.45);
+    width:100%;max-width:560px;height:fit-content}
+  .paper svg{display:block;width:100%;height:auto;border-radius:4px}
+
+  footer{margin-top:24px;color:var(--txt-dim);font-size:12.5px;line-height:1.6;border-top:1px solid var(--line);padding-top:14px}
+  footer b{color:var(--txt)}
+  .kbd{font-family:ui-monospace,Menlo,Consolas,monospace;background:#15130f;border:1px solid var(--line);
+    border-radius:5px;padding:1px 6px;font-size:12px;color:var(--txt)}
+  .note{background:#20180f;border:1px solid #4a3417;color:#e8c9a1;border-radius:9px;padding:10px 12px;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">Ink<span class="dot">·</span>Handwriting</div>
+    <div class="tag">Tippe Text &rarr; lade eine <b>.goodnotes</b>-Datei in <b>deiner echten Handschrift</b> als native, bearbeitbare Tinte.</div>
+  </header>
+
+  <main>
+    <!-- CONTROLS -->
+    <section>
+      <div class="panel">
+        <label class="fld" for="text">Dein Text</label>
+        <textarea id="text" spellcheck="false"></textarea>
+
+        <div class="row">
+          <div>
+            <label class="fld">Farbe</label>
+            <div class="swatches" id="swatches"></div>
+          </div>
+          <div>
+            <label class="fld" for="size">Größe</label>
+            <input class="num" id="size" type="number" min="6" max="24" step="0.5" value="11">
+          </div>
+        </div>
+
+        <details>
+          <summary>Erweitert</summary>
+          <div class="adv">
+            <label>Stiftdicke <span id="widthv">2.25</span>
+              <input id="width" type="range" min="1" max="4" step="0.05" value="2.25"></label>
+            <label>Glättung <span id="smoothv">3</span>
+              <input id="smooth" type="range" min="0" max="5" step="1" value="3"></label>
+            <label class="chk"><input id="variable" type="checkbox"> variable Breite</label>
+          </div>
+        </details>
+
+        <button class="btn" id="download" disabled>.goodnotes herunterladen</button>
+        <div class="status" id="status"><span class="spin"></span><span>Lade Python-Engine…</span></div>
+      </div>
+
+      <div class="panel note" style="display:none" id="hint">
+        <b>So nutzt du die Datei:</b> herunterladen &rarr; per AirDrop / Teilen an dein iPad &rarr;
+        „In GoodNotes öffnen“ (GoodNotes&nbsp;6). Die Schrift kommt als echte Tinte an: mit dem Lasso
+        auswählbar, verschiebbar, skalierbar, umfärbbar.
+      </div>
+    </section>
+
+    <!-- PREVIEW -->
+    <section class="stage">
+      <div class="stagebar">
+        <span id="meta">Vorschau</span>
+        <div class="pager">
+          <button id="prev" disabled>‹</button>
+          <span id="pageno">–</span>
+          <button id="next" disabled>›</button>
+        </div>
+      </div>
+      <div class="papers"><div class="paper" id="paper"></div></div>
+    </section>
+  </main>
+
+  <footer>
+    <b>Was das ist.</b> Dieselbe Engine wie die <span class="kbd">/inkhandwriting</span>-Skill, aber im
+    Browser (Python via Pyodide/WebAssembly) — es läuft komplett lokal, dein Text wird nirgends hochgeladen.
+    Die erzeugten Bytes sind identisch zur Skill.
+    <br><b>Ehrliche Einschränkung:</b> Ob GoodNotes&nbsp;6 die Datei als native Tinte importiert, lässt sich
+    nur auf dem iPad final prüfen — genau wie bei der Skill selbst. Alles bis zum Import ist hier verifiziert.
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"></script>
+<script>
+const PY_FILES = ["handwrite.py","gnlib.py","gnwrite.py","typeset.py","strictpb.py","gnbg.py","web.py"];
+const BIN_ASSETS = ["template.goodnotes","stroke_proto.bin"];   // written as bytes
+const TXT_ASSETS = ["glyphs.json"];                              // written as text
+const COLORS = [
+  ["orange","#E67300"],["black","#161616"],["blue","#233A5E"],["red","#B31229"],["green","#00733A"]
+];
+const DEFAULT_TEXT =
+`Hallo! Das hier ist meine eigene Handschrift,
+aber als echte, bearbeitbare GoodNotes-Tinte.
+
+Ich kann jetzt jeden Text in meine Schrift verwandeln –
+und ihn dann im Lasso verschieben, skalieren und umfärben.`;
+
+const $ = id => document.getElementById(id);
+const statusEl = $("status");
+let pyodide=null, webmod=null, ready=false, color="orange", pages=[], baselines=[], curColor="#E67300", pageIdx=0;
+
+function setStatus(html, cls){ statusEl.innerHTML = cls==="spin"
+  ? `<span class="spin"></span><span>${html}</span>` : `<span class="${cls||""}">${html}</span>`; }
+
+// ---- color swatches ----
+const swWrap=$("swatches");
+COLORS.forEach(([name,hex])=>{
+  const b=document.createElement("button");
+  b.className="sw"; b.style.background=hex; b.title=name;
+  b.setAttribute("aria-pressed", name===color);
+  b.onclick=()=>{ color=name; [...swWrap.children].forEach(c=>c.setAttribute("aria-pressed", c===b)); schedule(); };
+  swWrap.appendChild(b);
+});
+
+// ---- boot Pyodide ----
+async function boot(){
+  try{
+    pyodide = await loadPyodide();
+    setStatus("Lade Schrift &amp; Vorlage…","spin");
+    pyodide.FS.mkdirTree("/work/py"); pyodide.FS.mkdirTree("/work/assets");
+    const fetchAll = [
+      ...PY_FILES.map(f=>load(`py/${f}`,`/work/py/${f}`,false)),
+      ...TXT_ASSETS.map(f=>load(`assets/${f}`,`/work/assets/${f}`,false)),
+      ...BIN_ASSETS.map(f=>load(`assets/${f}`,`/work/assets/${f}`,true)),
+    ];
+    await Promise.all(fetchAll);
+    await pyodide.runPythonAsync(`
+import sys, os
+sys.path.insert(0, "/work/py")
+os.chdir("/work")
+import web
+`);
+    webmod = pyodide.globals.get("web");
+    ready=true;
+    $("download").disabled=false; $("hint").style.display="";
+    setStatus("Bereit.","ok");
+    await render();
+  }catch(e){
+    console.error(e);
+    setStatus("Fehler beim Laden der Engine: "+e.message,"err");
+  }
+}
+async function load(url, dest, binary){
+  const r = await fetch(url);
+  if(!r.ok) throw new Error(`${url} → HTTP ${r.status}`);
+  if(binary){ pyodide.FS.writeFile(dest, new Uint8Array(await r.arrayBuffer())); }
+  else { pyodide.FS.writeFile(dest, await r.text()); }
+}
+
+// ---- options ----
+function opts(){
+  return {
+    text: $("text").value,
+    size: parseFloat($("size").value)||11,
+    color, width: parseFloat($("width").value)||2.25,
+    smooth: parseInt($("smooth").value), variable: $("variable").checked
+  };
+}
+
+// ---- live preview (debounced) ----
+let t=null;
+function schedule(){ clearTimeout(t); t=setTimeout(render, 220); }
+async function render(){
+  if(!ready) return;
+  const o=opts();
+  try{
+    const js = webmod.preview_json(o.text, o.size, o.color, o.smooth);
+    const data = JSON.parse(js);
+    pages=data.pages; baselines=data.baselines; curColor=data.color;
+    pageIdx=Math.min(pageIdx, pages.length-1); if(pageIdx<0)pageIdx=0;
+    $("meta").textContent = `${data.nstrokes} Striche · ${data.npages} Seite${data.npages>1?"n":""}`;
+    drawPage();
+  }catch(e){ console.error(e); setStatus("Vorschau-Fehler: "+e.message,"err"); }
+}
+
+function drawPage(){
+  const total=pages.length;
+  $("prev").disabled = pageIdx<=0;
+  $("next").disabled = pageIdx>=total-1;
+  $("pageno").textContent = total? `${pageIdx+1}/${total}` : "–";
+  const pg=pages[pageIdx]; if(!pg){ $("paper").innerHTML=""; return; }
+  const W=pg.w, H=pg.h, sw=parseFloat($("width").value)||2.25;
+  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+  s+=`<rect width="${W}" height="${H}" fill="#FBFAF6"/>`;
+  for(const y of baselines) s+=`<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="var(--paper-rule)" stroke-width="1"/>`;
+  s+=`<g fill="none" stroke="${curColor}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">`;
+  for(const st of pg.strokes){
+    if(st.length===1){ s+=`<circle cx="${st[0][0]}" cy="${st[0][1]}" r="${sw/2}" fill="${curColor}" stroke="none"/>`; continue; }
+    s+=`<polyline points="${st.map(p=>p[0]+","+p[1]).join(" ")}"/>`;
+  }
+  s+=`</g></svg>`;
+  $("paper").innerHTML=s;
+}
+
+$("prev").onclick=()=>{ if(pageIdx>0){pageIdx--;drawPage();} };
+$("next").onclick=()=>{ if(pageIdx<pages.length-1){pageIdx++;drawPage();} };
+
+// ---- download ----
+$("download").onclick=async ()=>{
+  if(!ready) return;
+  const o=opts(); const btn=$("download");
+  btn.disabled=true; setStatus("Baue .goodnotes…","spin");
+  await new Promise(r=>setTimeout(r,25));   // let the spinner paint before the sync build blocks
+  try{
+    const b64 = webmod.build_b64(o.text, o.size, o.color, o.width, o.smooth, o.variable);
+    const bytes = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
+    const blob = new Blob([bytes], {type:"application/octet-stream"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob); a.download=filename(o.text);
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+    setStatus(`Fertig · ${(bytes.length/1024).toFixed(0)} KB heruntergeladen.`,"ok");
+  }catch(e){ console.error(e); setStatus("Build-Fehler: "+e.message,"err"); }
+  finally{ btn.disabled=false; }
+};
+function filename(text){
+  const first=(text.trim().split("\n")[0]||"notiz").toLowerCase()
+    .replace(/[^a-z0-9äöüß ]+/gi,"").trim().replace(/\s+/g,"-").slice(0,32);
+  return (first||"handschrift")+".goodnotes";
+}
+
+// ---- wire inputs ----
+$("text").value=DEFAULT_TEXT;
+$("text").addEventListener("input",schedule);
+$("size").addEventListener("input",schedule);
+$("smooth").addEventListener("input",()=>{ $("smoothv").textContent=$("smooth").value; schedule(); });
+$("width").addEventListener("input",()=>{ $("widthv").textContent=parseFloat($("width").value).toFixed(2); drawPage(); });
+$("variable").addEventListener("change",schedule);
+
+boot();
+</script>
+</body>
+</html>
